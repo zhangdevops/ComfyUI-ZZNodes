@@ -186,8 +186,8 @@ ComfyUI-ZZNodes/
 发布准备文件已包含，但本仓库还需要开发者完成以下步骤；这些文件不代表已获收录。
 
 1. 在 [Comfy Registry](https://registry.comfy.org/) 创建Publisher，取得实际Publisher ID。
-2. 编辑 `pyproject.toml`，将 `REPLACE_WITH_YOUR_REGISTRY_PUBLISHER_ID` 替换为该ID。
-   不要直接假定它等于GitHub用户名。
+2. 本仓库已确认Publisher ID为 `zhang`，`pyproject.toml` 已配置该ID。
+   发布密钥必须属于该Publisher；它与GitHub用户名不是同一个配置项。
 3. 确认Registry包标识 `zznodes` 尚未被占用；必要时在第一次发布前修改。
    Registry包标识和节点类型 `QueueShutdown` 是两回事。
 4. 阅读并确认MIT许可证；当前署名为 `ZZNodes contributors`，如需个人/组织署名请在发布前修改。
@@ -203,6 +203,24 @@ comfy node publish
 按提示输入Registry发布密钥。密钥不要写进源码、README或提交到Git。
 发布版本使用三段式 `1.0.0`，已发布版本不能覆盖；后续修复递增为 `1.0.1` 等。
 Registry提供Manager的数据来源；搜索结果可能需要刷新缓存。
+
+### GitHub Actions 自动发布
+
+仓库已配置 `.github/workflows/publish-registry.yml`，工作流名为 **Publish to Comfy Registry**。
+
+1. 在Comfy Registry为Publisher `zhang` 创建发布API Key。
+2. 打开仓库 **Settings → Secrets and variables → Actions → New repository secret**。
+   Name填写 `REGISTRY_ACCESS_TOKEN`，Secret填写Registry发布API Key，然后保存。
+   请使用Repository secret，不要放在Variables中，也不要使用GitHub访问令牌代替。
+3. 首次发布：进入 **Actions → Publish to Comfy Registry → Run workflow**，选择 `main` 并运行。
+   当前版本是 `1.0.0`；若该版本已经发布，请先递增版本。
+4. 后续发布：修改 `pyproject.toml` 中的 `version`，随源码一起推送到 `main`，工作流会自动运行。
+   触发条件是该文件发生变化，因此仅修改其他元数据也会触发；发布时必须使用尚未发布的版本号。
+5. 在Actions查看发布结果，再到Registry核对版本状态，并在Manager刷新列表搜索 `zznodes`。
+
+工作流也支持手动重试；缺少密钥时会明确报错。成功发布过的版本不可重复发布。
+仅修改README或节点源码不会自动发布；GitHub Release也不是这个工作流的触发条件。
+发布在GitHub托管的Ubuntu runner上打包上传，不运行节点的Windows关机功能。
 
 旧版Manager的传统收录还可按官方贡献说明，在其节点列表中添加仓库条目并提交PR。
 应按提交时的仓库实际结构和要求操作，不要只修改本地Manager文件后认为已公开收录。
