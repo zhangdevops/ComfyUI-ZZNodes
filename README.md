@@ -1,4 +1,4 @@
-# ComfyUI-ZZNodes
+# ZZNodes
 
 ComfyUI 工具节点包。目前提供 **自动关机控制** 一个节点：等待整个任务队列结束后自动关闭 Windows，支持实时取消与可选诊断日志。
 
