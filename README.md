@@ -7,7 +7,7 @@ ComfyUI 工具节点包。目前提供 **自动关机控制** 一个节点：等
 - GitHub：[zhangdevops/ComfyUI-ZZNodes](https://github.com/zhangdevops/ComfyUI-ZZNodes)
 - 问题反馈：[Issues](https://github.com/zhangdevops/ComfyUI-ZZNodes/issues)
 - 许可证：[MIT](LICENSE)
-- 发布元数据版本：`1.0.0`（节点内部现有版本标记为 `1.0`）
+- 发布元数据版本：`1.0.1`（节点内部现有版本标记为 `1.0`）
 - Registry / Manager 收录状态：待发布，不表示已经可以搜索安装。
 
 ## 功能
@@ -213,7 +213,7 @@ Registry提供Manager的数据来源；搜索结果可能需要刷新缓存。
    Name填写 `REGISTRY_ACCESS_TOKEN`，Secret填写Registry发布API Key，然后保存。
    请使用Repository secret，不要放在Variables中，也不要使用GitHub访问令牌代替。
 3. 首次发布：进入 **Actions → Publish to Comfy Registry → Run workflow**，选择 `master` 并运行。
-   当前版本是 `1.0.0`；若该版本已经发布，请先递增版本。
+   当前版本是 `1.0.1`；若该版本已经发布，请先递增版本。
 4. 后续发布：修改 `pyproject.toml` 中的 `version`，随源码一起推送到 `master`，工作流会自动运行。
    触发条件是该文件发生变化，因此仅修改其他元数据也会触发；发布时必须使用尚未发布的版本号。
 5. 在Actions查看发布结果，再到Registry核对版本状态，并在Manager刷新列表搜索 `zznodes`。

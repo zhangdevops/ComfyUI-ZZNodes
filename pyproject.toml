@@ -1,9 +1,8 @@
 # Release metadata for Comfy Registry / ComfyUI Manager.
-# REQUIRED BEFORE PUBLISHING: replace PublisherId with the actual Registry ID.
-# The Registry package name "zznodes" is proposed; confirm availability first.
+# Registry identity: zhang/zznodes. Keep the package ID stable across releases.
 [project]
 name = "zznodes"
-version = "1.0.0"
+version = "1.0.1"
 description = "ZZNodes tools for ComfyUI: Windows queue-aware shutdown with cancellation and optional diagnostic logging."
 readme = "README.md"
 license = { file = "LICENSE" }
@@ -23,4 +22,4 @@ Documentation = "https://github.com/zhangdevops/ComfyUI-ZZNodes#readme"
 
 [tool.comfy]
 PublisherId = "zhang"
-DisplayName = "ZZNodes · ComfyUI 工具箱"
+DisplayName = "ComfyUI-ZZNodes"
