@@ -1,2 +1,4 @@
 # Keep GitHub Actions in the repository, but exclude them from Registry packages.
 .github/
+# Offline regression tests are only needed in the source repository.
+tests/

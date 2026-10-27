@@ -1,16 +1,14 @@
-"""自动关机控制1.0：独立诊断日志版。"""
+"""自动关机控制：单开关、固定空闲等待、内存运行日志。"""
 import ipaddress
 import secrets
 from urllib.parse import urlsplit
 from aiohttp import web
 from server import PromptServer
-from .controller import Controller
-from .diagnostics import logger, register_secret
+from .controller import Controller, logger
 
-__version__ = '1.0'
+__version__ = '0.1.0'
 controller = Controller(lambda: PromptServer.instance.prompt_queue)
 _csrf = secrets.token_urlsafe(32)
-register_secret(_csrf)
 
 @web.middleware
 async def reject_after_commit(request, handler):
@@ -49,17 +47,12 @@ async def control(request):
         # Never dump request bodies, headers or complete status/prompt objects.
         if data.get('action') == 'cancel':
             controller.cancel('已由界面取消')
-        elif data.get('action') == 'set_logging':
-            controller.set_record_logs(data['record_logs'])
-        elif data.get('action') == 'clear_logs':
-            controller.clear_logs()
         elif data.get('action') == 'arm':
             if data.get('test_only') is True:
                 raise web.HTTPBadRequest(text='Test mode was removed; this request was rejected without arming shutdown.')
             try:
-                controller.arm(data['revision'], data['idle_seconds'], data['countdown_seconds'])
+                controller.arm(data['revision'])
             except (ValueError, KeyError) as exc:
-                logger.exception('启用请求失败：完整异常堆栈')
                 raise web.HTTPConflict(text=str(exc))
         else:
             raise web.HTTPBadRequest(text='Unknown action')
@@ -82,9 +75,6 @@ class QueueShutdown:
     def INPUT_TYPES(cls):
         return {'required': {
             'enabled': ('BOOLEAN', {'default': False}),
-            'idle_seconds': ('INT', {'default': 60, 'min': 10, 'max': 86400}),
-            'countdown_seconds': ('INT', {'default': 30, 'min': 10, 'max': 600}),
-            'record_logs': ('BOOLEAN', {'default': False}),
             'arm_token': ('STRING', {'default': ''}),
         }}
     RETURN_TYPES = ()
@@ -96,15 +86,11 @@ class QueueShutdown:
     def IS_CHANGED(cls, **kwargs):
         return float('nan')
 
-    def execute(self, enabled=False, idle_seconds=60, countdown_seconds=30, record_logs=False, arm_token=''):
-        # 记录开关由界面实时操作；旧排队任务中的record_logs值不会开启磁盘记录。
-        register_secret(arm_token)
-        logger.info('节点execute进入：enabled=%s，凭证是否提供=%s，idle_seconds=%s，countdown_seconds=%s', bool(enabled), bool(arm_token), idle_seconds, countdown_seconds)
+    def execute(self, enabled=False, arm_token='', **legacy_inputs):
+        # Ignore removed inputs from older API workflows; timing is server-controlled.
         try:
             if enabled:
                 controller.activate(arm_token)
-            else:
-                logger.info('本次节点enabled=false，不启动监控；不改变全局计划')
             return ()
         except Exception:
             logger.exception('节点execute失败：完整异常堆栈')

@@ -5,10 +5,14 @@ import { ComfyWidgets } from "../../../scripts/widgets.js";
 const nodes = new Set();
 let backend = null;
 let pending = 0;
-let chain = Promise.resolve();
 let requestVersion = 0;
 const widget = (n, name) => n.widgets?.find(w => w.name === name);
-const fetchLocal = (path, options = {}) => api.fetchApi(path, { ...options, signal: AbortSignal.timeout(5000) });
+
+async function fetchLocal(path, options = {}) {
+    const response = await api.fetchApi(path, { ...options, signal: AbortSignal.timeout(5000) });
+    if (!response.ok) throw new Error(await response.text());
+    return response.json();
+}
 
 function hideArmToken(node) {
     const token = widget(node, "arm_token");
@@ -39,44 +43,43 @@ function localizeSourceBadge(node) {
         return text.replace(/^(#\d+\s+)(?:ComfyUI-)?(?:QueueShutdown|ZZNodes)$/, "$1自动关机控制");
     };
     node.drawBadges = function (ctx, ...args) {
-        const translated = new Proxy(ctx, {
-            get(target, key) {
-                if (key === "measureText") return text => target.measureText(label(text));
-                if (key === "fillText" || key === "strokeText") return (text, ...rest) => target[key](label(text), ...rest);
-                const value = Reflect.get(target, key, target);
-                return typeof value === "function" ? value.bind(target) : value;
-            },
-            set(target, key, value) { return Reflect.set(target, key, value, target); },
-        });
-        return original.call(this, translated, ...args);
+        // Use the real canvas context. Restore exact properties even if drawing fails.
+        const saved = [];
+        try {
+            for (const key of ["measureText", "fillText", "strokeText"]) {
+                const method = ctx[key];
+                saved.push([key, Object.getOwnPropertyDescriptor(ctx, key)]);
+                Object.defineProperty(ctx, key, {
+                    configurable: true, writable: true,
+                    value(text, ...rest) { return method.call(this, label(text), ...rest); },
+                });
+            }
+            return original.call(this, ctx, ...args);
+        } finally {
+            for (const [key, descriptor] of saved.reverse()) {
+                if (descriptor) Object.defineProperty(ctx, key, descriptor);
+                else delete ctx[key];
+            }
+        }
     };
     Object.defineProperty(node, "_queueShutdownBadgeLocalized", { value: true });
 }
 
 function display(message, sync = false) {
+    const history = (backend?.logs ?? []).join("\n");
+    const text = `${history}${history ? "\n" : ""}【${sync ? "当前状态" : "当前提示"}】${message}`;
     for (const node of nodes) {
         hideArmToken(node);
-        if (!sync && node._shutdownLog) {
-            const logs = (backend?.logs ?? []).join("\n");
-            node._shutdownLog.value = `${logs}${logs ? "\n" : ""}【当前提示】${message}`;
+        const w = node._shutdownLog;
+        if (w && w.value !== text) {
+            const input = w.inputEl;
+            const bottom = !input || input.scrollHeight - input.scrollTop - input.clientHeight < 24;
+            w.value = text;
+            if (input && bottom) input.scrollTop = input.scrollHeight;
         }
         if (sync && backend) {
-            const text = (backend.logs ?? []).join("\n");
-            const w = node._shutdownLog;
-            if (w && w.value !== text) {
-                const input = w.inputEl;
-                const bottom = !input || input.scrollHeight - input.scrollTop - input.clientHeight < 24;
-                w.value = text;
-                if (input && bottom) input.scrollTop = input.scrollHeight;
-            }
-            widget(node, "record_logs").value = Boolean(backend.record_logs);
             widget(node, "enabled").value = backend.enabled;
             widget(node, "arm_token").value = backend.arm_token;
-            for (const key of ["idle_seconds", "countdown_seconds"]) {
-                const w = widget(node, key);
-                if (backend.enabled) w.value = backend[key];
-                w.disabled = backend.enabled;
-            }
         }
         node.setDirtyCanvas(true, true);
     }
@@ -86,56 +89,40 @@ async function refresh() {
     if (pending) return;
     const version = requestVersion;
     try {
-        const response = await fetchLocal("/queue_shutdown_v2/status", { cache: "no-store" });
-        if (!response.ok) throw new Error(await response.text());
-        const state = await response.json();
+        const state = await fetchLocal("/queue_shutdown_v2/status", { cache: "no-store" });
         if (pending || version !== requestVersion) return;
         backend = state;
         display(state.message, true);
-    } catch (error) {
+    } catch {
         if (!pending) display("状态未知：无法连接后台；不代表关机已取消");
     }
 }
 
-function control(action, node) {
+async function control(action) {
     const revision = backend?.revision;
-    const settings = { idle_seconds: widget(node, "idle_seconds").value, countdown_seconds: widget(node, "countdown_seconds").value, record_logs: widget(node, "record_logs").value };
     pending++;
     const version = ++requestVersion;
-    display(action === "cancel" ? "正在请求取消，请等待后台确认…" : action === "clear_logs" ? "正在清空日志…" : action === "set_logging" ? "正在设置诊断文件记录…" : "正在请求启用…");
-    const operation = (async () => {
+    display(action === "cancel" ? "正在请求取消，请等待后台确认…" : "正在请求启用…");
+    try {
         if (action === "arm" && revision == null) throw new Error("尚未读取后台状态，请稍后重试");
         let current = backend;
         if (!current?.csrf) {
-            const response = await fetchLocal("/queue_shutdown_v2/status", { cache: "no-store" });
-            if (!response.ok) throw new Error(await response.text());
-            current = await response.json();
+            current = await fetchLocal("/queue_shutdown_v2/status", { cache: "no-store" });
         }
-        const response = await fetchLocal("/queue_shutdown_v2/control", {
+        const confirmed = await fetchLocal("/queue_shutdown_v2/control", {
             method: "POST", headers: { "Content-Type": "application/json", "X-Queue-Shutdown": current.csrf },
-            body: JSON.stringify({ action, revision, ...settings }),
+            body: JSON.stringify({ action, revision }),
         });
-        if (!response.ok) throw new Error(await response.text());
-        const confirmed = { ...await response.json(), csrf: current.csrf };
         if (version !== requestVersion) return;
-        backend = confirmed;
+        backend = { ...confirmed, csrf: current.csrf };
         display(backend.message, true);
-    })().catch(error => {
+    } catch (error) {
         if (version !== requestVersion) return;
-        if (action === "set_logging") {
-            display(`诊断日志设置未确认：${error.message}；关机计划不变`);
-            window.alert(`诊断日志设置失败：${error.message}`);
-            return;
-        }
-        if (action === "clear_logs") {
-            display(`清空日志未确认：${error.message}；关机监控未被取消`);
-            window.alert(`清空日志失败：${error.message}`);
-            return;
-        }
         display(`操作未确认：${error.message}；可再次关闭“启用自动关机”重试`);
         window.alert(`队列关机：操作未确认。${error.message}\n取消失败时请再次关闭“启用自动关机”重试，或创建 STOP_SHUTDOWN.txt。`);
-    }).finally(() => { pending--; });
-    chain = Promise.allSettled([chain, operation]);
+    } finally {
+        pending--;
+    }
 }
 
 app.registerExtension({
@@ -144,11 +131,6 @@ app.registerExtension({
         if (node.comfyClass !== "QueueShutdown") return;
         localizeSourceBadge(node);
         node.title = "自动关机控制";
-        const labels = { enabled: "启用自动关机", idle_seconds: "队列空闲等待（秒）", countdown_seconds: "关机倒计时（秒）", record_logs: "记录诊断日志" };
-        for (const w of node.widgets ?? []) {
-            if (labels[w.name]) w.label = labels[w.name];
-            if (w.name === "enabled" || w.name === "record_logs") { w.options ??= {}; w.options.on = "开启"; w.options.off = "关闭"; }
-        }
         nodes.add(node);
         const token = widget(node, "arm_token");
         hideArmToken(node);
@@ -157,7 +139,15 @@ app.registerExtension({
         const oldConfigure = node.onConfigure;
         node.onConfigure = function (...args) {
             try { return oldConfigure?.apply(this, args); }
-            finally { hideArmToken(this); }
+            finally {
+                // Older workflows store removed settings by position. Never use
+                // their saved values as a current session's shutdown consent.
+                token.value = "";
+                widget(this, "enabled").value = false;
+                if (this._shutdownLog) this._shutdownLog.value = "正在读取后台状态…";
+                hideArmToken(this);
+                refresh();
+            }
         };
         const oldSerialize = node.onSerialize;
         node.onSerialize = function (data) {
@@ -165,18 +155,15 @@ app.registerExtension({
             if (data.widgets_values) data.widgets_values[this.widgets.indexOf(token)] = "";
         };
         const enabled = widget(node, "enabled");
+        enabled.label = "启用自动关机";
+        enabled.options ??= {};
+        enabled.options.on = "开启";
+        enabled.options.off = "关闭";
         enabled.value = false;
         const callback = enabled.callback;
         enabled.callback = function (value, ...args) {
             callback?.call(this, value, ...args);
-            control(value ? "arm" : "cancel", node);
-        };
-        const recordLogs = widget(node, "record_logs");
-        recordLogs.value = false;
-        const logCallback = recordLogs.callback;
-        recordLogs.callback = function (value, ...args) {
-            logCallback?.call(this, value, ...args);
-            control("set_logging", node);
+            control(value ? "arm" : "cancel");
         };
         const w = ComfyWidgets.STRING(node, "运行日志", ["STRING", { multiline: true, default: "" }], app).widget;
         w.options ??= {};
@@ -190,10 +177,9 @@ app.registerExtension({
             w.inputEl.placeholder = "运行日志（保留最近100条）";
         }
         node._shutdownLog = w;
-        node.addWidget("button", "清空日志", null, () => control("clear_logs", node), { serialize: false });
         const removed = node.onRemoved;
         node.onRemoved = function (...args) { nodes.delete(this); return removed?.apply(this, args); };
-        node.setSize([640, 520]);
+        node.setSize([640, 340]);
         refresh();
     },
     setup() { setInterval(() => { if (nodes.size) refresh(); }, 1000); },
