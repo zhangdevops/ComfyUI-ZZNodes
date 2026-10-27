@@ -49,7 +49,7 @@ git clone https://github.com/zhangdevops/ComfyUI-ZZNodes.git
 ### ZIP 安装
 
 从 GitHub 的 **Code → Download ZIP** 下载并解压，将包目录放入 `ComfyUI/custom_nodes/`。
-可以将解压后的 `ComfyUI-ZZNodes-main` 改名为 `ComfyUI-ZZNodes`。
+可以将解压后的 `ComfyUI-ZZNodes-master` 改名为 `ComfyUI-ZZNodes`。
 确认入口文件直接位于：
 
 ```text
@@ -212,9 +212,9 @@ Registry提供Manager的数据来源；搜索结果可能需要刷新缓存。
 2. 打开仓库 **Settings → Secrets and variables → Actions → New repository secret**。
    Name填写 `REGISTRY_ACCESS_TOKEN`，Secret填写Registry发布API Key，然后保存。
    请使用Repository secret，不要放在Variables中，也不要使用GitHub访问令牌代替。
-3. 首次发布：进入 **Actions → Publish to Comfy Registry → Run workflow**，选择 `main` 并运行。
+3. 首次发布：进入 **Actions → Publish to Comfy Registry → Run workflow**，选择 `master` 并运行。
    当前版本是 `1.0.0`；若该版本已经发布，请先递增版本。
-4. 后续发布：修改 `pyproject.toml` 中的 `version`，随源码一起推送到 `main`，工作流会自动运行。
+4. 后续发布：修改 `pyproject.toml` 中的 `version`，随源码一起推送到 `master`，工作流会自动运行。
    触发条件是该文件发生变化，因此仅修改其他元数据也会触发；发布时必须使用尚未发布的版本号。
 5. 在Actions查看发布结果，再到Registry核对版本状态，并在Manager刷新列表搜索 `zznodes`。
 
