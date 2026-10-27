@@ -1,0 +1,2 @@
+# Keep GitHub Actions in the repository, but exclude them from Registry packages.
+.github/
