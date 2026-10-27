@@ -2,7 +2,7 @@
 # Registry identity: zhang/zznodes. Keep the package ID stable across releases.
 [project]
 name = "zznodes"
-version = "1.0.1"
+version = "1.0.2"
 description = "ZZNodes tools for ComfyUI: Windows queue-aware shutdown with cancellation and optional diagnostic logging."
 readme = "README.md"
 license = { file = "LICENSE" }
