@@ -1,0 +1,70 @@
+# Python cache and local environments
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+coverage.xml
+coverage.json
+htmlcov/
+.tox/
+.nox/
+.hypothesis/
+.pyre/
+.pytype/
+.ipynb_checkpoints/
+.venv/
+venv/
+env/
+
+# Runtime diagnostics and emergency cancellation flag
+logs/
+*.log
+*.log.*
+STOP_SHUTDOWN.txt
+
+# Credentials and local configuration (never commit publishing API keys)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+registry-token.txt
+registry-api-key.txt
+
+# Build/package output
+dist/
+build/
+*.egg-info/
+*.egg
+*.whl
+.eggs/
+*.zip
+pip-wheel-metadata/
+
+# Frontend dependencies and package-manager diagnostics
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Editors and OS temporary files
+.vscode/
+.idea/
+.vs/
+.codex/
+.claude/
+.DS_Store
+._*
+Thumbs.db
+Desktop.ini
+*.tmp
+*.bak
+*.swp
+*.swo
+*~
