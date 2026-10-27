@@ -90,7 +90,7 @@ class QueueShutdown:
     RETURN_TYPES = ()
     FUNCTION = 'execute'
     OUTPUT_NODE = True
-    CATEGORY = 'System'
+    CATEGORY = 'ZZNodes'
 
     @classmethod
     def IS_CHANGED(cls, **kwargs):
